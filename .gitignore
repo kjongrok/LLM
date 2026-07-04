@@ -1,0 +1,7 @@
+.venv/
+dataset/
+__pycache__/
+*.pdf
+.ipynb_checkpoints/
+.env
+*.mp4ngrok/
