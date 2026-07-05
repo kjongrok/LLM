@@ -18,6 +18,101 @@ from supabase import create_client
 st.set_page_config(page_title="AI_1team 관제 대시보드", layout="wide", page_icon="🚗")
 
 # ==========================================
+# 🌟 Premium UI/UX Custom CSS Injection
+# ==========================================
+custom_css = """
+<style>
+/* 폰트 적용 (Pretendard) */
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css");
+html, body, [class*="css"]  {
+    font-family: 'Pretendard', sans-serif !important;
+}
+
+/* 메인 배경 (다크 톤 + 은은한 그라데이션) */
+.stApp {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important;
+    color: #f8fafc !important;
+}
+
+/* 상단 Streamlit 기본 헤더/푸터 숨김 */
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
+header {background: transparent !important;}
+
+/* 메트릭(숫자 표시) 카드 디자인 (글래스모피즘) */
+[data-testid="stMetric"] {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+[data-testid="stMetric"]:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4);
+    background: rgba(255, 255, 255, 0.08);
+}
+[data-testid="stMetricValue"] {
+    color: #38bdf8 !important;
+    font-weight: 800 !important;
+}
+
+/* 탭 버튼 디자인 */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 10px;
+    background-color: transparent;
+}
+.stTabs [data-baseweb="tab"] {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+    border-radius: 12px !important;
+    padding: 10px 24px !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    transition: all 0.3s ease;
+}
+.stTabs [aria-selected="true"] {
+    background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%) !important;
+    color: white !important;
+    border: none !important;
+    box-shadow: 0 4px 15px rgba(37, 99, 235, 0.5) !important;
+    font-weight: 600 !important;
+}
+
+/* 일반 버튼 디자인 (마이크로 애니메이션 적용) */
+.stButton > button {
+    background: linear-gradient(90deg, #10b981 0%, #059669 100%);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 8px 24px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 5px rgba(16, 185, 129, 0.3);
+}
+.stButton > button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(16, 185, 129, 0.5);
+    border: none;
+    color: white;
+}
+.stButton > button:active {
+    transform: translateY(0);
+}
+
+/* 사이드바 글래스모피즘 */
+[data-testid="stSidebar"] {
+    background: rgba(15, 23, 42, 0.85) !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.1) !important;
+    backdrop-filter: blur(20px);
+}
+</style>
+"""
+st.markdown(custom_css, unsafe_allow_html=True)
+
+
+# ==========================================
 # 1. 초기 셋업 (모델 및 DB 연동)
 # ==========================================
 # 환경변수 로드
@@ -142,8 +237,8 @@ else:
 st.sidebar.markdown("---")
 run_stream = st.sidebar.checkbox("▶️ [Live] 스트리밍 시작", value=False)
 st.sidebar.markdown("---")
-st.sidebar.subheader("🧪 시연용 테스트 (Stress Test)")
-inject_traffic_jam = st.sidebar.button("🔥 돌발 정체 시나리오 주입")
+st.sidebar.subheader("🧪 시스템 안정성 테스트 (Stress Test)")
+inject_traffic_jam = st.sidebar.button("🔥 정체 시나리오 테스트 실행")
 if inject_traffic_jam:
     st.session_state.stress_test_active = True
     st.session_state.stress_test_counter = 0
@@ -153,10 +248,12 @@ st.title("🚗 교통량 이상 탐지 및 예측 MLOps 시스템")
 # ==========================================
 # 3. 다중 탭(Tabs) 레이아웃 생성
 # ==========================================
-tab1, tab2, tab3 = st.tabs([
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "🔴 1. 실시간 관제 (Live)",
     "📊 2. 모델 방어 보고서",
-    "🛠️ 3. 아키텍처 & MLOps 파이프라인"
+    "🛠️ 3. 아키텍처 & MLOps 파이프라인",
+    "💬 4. AI 관제 요원 (LLM Chat)",
+    "📝 5. 관제 일지 자동 생성기"
 ])
 
 # ------------------------------------------
@@ -182,12 +279,25 @@ with tab1:
 
     if 'history_df' not in st.session_state:
         st.session_state.history_df = pd.DataFrame(columns=["Time", "Actual", "Predicted"])
+        
+    if 'live_metrics' not in st.session_state:
+        st.session_state.live_metrics = {
+            "cctv_name": "알 수 없음",
+            "density": 0.0,
+            "car_count": 0,
+            "bus_count": 0,
+            "truck_count": 0,
+            "is_anomaly": False,
+            "mse": 0.0,
+            "future_prediction": 0.0
+        }
 
     if run_stream and selected_cctv_url:
         cap = cv2.VideoCapture(selected_cctv_url)
         if not cap.isOpened():
             video_placeholder.error("스트리밍 연결에 실패했습니다.")
         else:
+            # 기본 처리 주기 복원 (10프레임당 1프레임 처리)
             frame_skip = 10 
             frame_idx = 0
             last_log_time = 0
@@ -213,14 +323,14 @@ with tab1:
 
                 img_area = img.shape[0] * img.shape[1]
                 
-                # [벤치마크 검증 완료] 야간 오탐지를 원천 차단하는 최적의 임계값(0.40) 강력 고정
+                # [벤치마크 검증 완료] 야간 오탐지 방지를 위한 임계값 0.40 적용
                 yolo_conf = 0.40
                     
                 # [고도화] Object Tracking (Custom Centroid Tracker) 도입
                 if 'track_history' not in st.session_state:
                     st.session_state.track_history = [] # list of dicts: {'center': (cx, cy), 'stationary_count': 0}
                     
-                # 원래의 안정적인 순수 Detection 복구!
+                # 객체 탐지(Detection) 로직 복원
                 results = yolo_model(img, classes=[2, 5, 7], conf=yolo_conf, verbose=False)
                 boxes = results[0].boxes
                 
@@ -290,9 +400,9 @@ with tab1:
                     st.session_state.stress_test_counter += 1
                     car_count += 30
                     bus_count += 5
-                    density += 0.5 # 밀집도 50% 강제 폭증
+                    density += 0.5 # 테스트용 정체 데이터(밀집도 50%) 주입
                     
-                    if st.session_state.stress_test_counter > 15: # 15프레임 뒤 정상화
+                    if st.session_state.stress_test_counter > 15: # 15프레임 이후 테스트 상태 해제
                         st.session_state.stress_test_active = False
                 
                 features = np.array([[car_count, bus_count, truck_count, density]], dtype=float)
@@ -326,7 +436,7 @@ with tab1:
                     st.session_state.sequence_buffer.pop(0)
                 
                 future_predictions = []
-                # 버퍼가 12프레임(약 12초/분 흐름) 쌓였을 때만 의미 있는 트렌드 분석 수행
+                # 버퍼에 12프레임 이상 누적 시 트렌드 분석 수행
                 if len(st.session_state.sequence_buffer) == 12:
                     # [고도화] GRU 딥러닝 + 슬라이딩 윈도우(polyfit) 앙상블 아키텍처
                     
@@ -347,7 +457,7 @@ with tab1:
                         gru_pred = forecaster_model.predict(current_input, verbose=0)[0, 0]
                         gru_scaled = max(0.0, min(float(gru_pred), 1.0))
                         
-                        # [핵심] 앙상블: 딥러닝 예측 60% + 시계열 트렌드 40% 결합하여 극강의 안정성 확보
+                        # [알고리즘] 앙상블 기법 (딥러닝 60%, 시계열 트렌드 40% 결합하여 예측 안정성 최적화)
                         ensemble_scaled = (gru_scaled * 0.6) + (trend_scaled * 0.4)
                         
                         # 역정규화하여 실제 밀집도로 변환
@@ -385,6 +495,18 @@ with tab1:
                 delta_val = future_t5 - density
                 metric_density.metric("혼잡도(Density)", f"{density:.4f}", delta=f"{delta_val:+.4f} (미래예측)", delta_color="inverse")
                 
+                # LLM 참조용 세션 스테이트(Session State) 최신 데이터 업데이트
+                st.session_state.live_metrics = {
+                    "cctv_name": selected_cctv_name if selected_cctv_url else "알 수 없음",
+                    "density": density,
+                    "car_count": car_count,
+                    "bus_count": bus_count,
+                    "truck_count": truck_count,
+                    "is_anomaly": bool(is_anomaly),
+                    "mse": float(mse),
+                    "future_prediction": float(predicted_density_real)
+                }
+                
                 # Early Warning UI
                 max_future_density = max(future_predictions)
                 if is_anomaly:
@@ -400,13 +522,16 @@ with tab1:
                 
                 # Future Trajectory Chart
                 current_time_str = time.strftime("%H:%M:%S")
-                new_row = pd.DataFrame({"Time": [current_time_str], "Actual": [density]})
                 
-                # Reset old history_df if it has the "Predicted" column
-                if 'history_df' not in st.session_state or 'Predicted' in st.session_state.history_df.columns:
-                    st.session_state.history_df = pd.DataFrame(columns=["Time", "Actual"])
+                # [[성능 최적화] 1초 주기로 차트 데이터 갱신 (부하 방지 목적)
+                if 'last_chart_time' not in st.session_state or st.session_state.last_chart_time != current_time_str:
+                    st.session_state.last_chart_time = current_time_str
+                    new_row = pd.DataFrame({"Time": [current_time_str], "Actual": [density]})
                     
-                st.session_state.history_df = pd.concat([st.session_state.history_df, new_row]).tail(30)
+                    if 'history_df' not in st.session_state or 'Predicted' in st.session_state.history_df.columns or st.session_state.history_df.empty:
+                        st.session_state.history_df = new_row
+                    else:
+                        st.session_state.history_df = pd.concat([st.session_state.history_df, new_row]).tail(30)
                 
                 display_df = st.session_state.history_df.copy()
                 display_df["Predicted"] = np.nan
@@ -446,15 +571,15 @@ with tab2:
         st.bar_chart(f1_data)
         
     with col_def2:
-        st.markdown("#### 🤔 왜 GRU(Gated Recurrent Unit) 인가?")
+        st.markdown("#### 🤔 GRU(Gated Recurrent Unit) 모델 도입 배경")
         st.info("""
         **1. 과적합(Overfitting) 원천 방지 및 최상의 설명력(R² Score)**
         - 최신 유행인 Transformer나 복잡한 LSTM은 단순한 쌍봉(Double Peak) 형태의 교통량 패턴에서 오히려 과적합을 일으킵니다.
         - 수만 번의 벤치마크 결과, 불필요한 메모리 셀을 제거하여 효율을 극대화한 **GRU 모델이 가장 높은 예측 정확도(R² Score: 0.871)**를 달성했습니다.
         
-        **2. Sliding Window 아키텍처와의 완벽한 궁합**
+        **2. Sliding Window 아키텍처와의 높은 시너지**
         - 본 시스템은 단일 프레임에 의존하지 않고, **과거 12프레임의 시퀀스 버퍼(Sliding Window)**를 메모리에 상주시키며 실시간 트렌드를 분석합니다.
-        - GRU는 이러한 '연속된 짧은 궤적'을 분석하여 미래의 정체 폭증을 가장 빠르고 가볍게 캐치해 내는 완벽한 실무용 아키텍처입니다.
+        - GRU는 연속된 단기 궤적 분석에 유리하며 향후 정체 구간을 신속하게 식별하는 데 적합한 모델입니다.
         """)
 
 # ------------------------------------------
@@ -516,10 +641,10 @@ with tab3:
                 col_eda1, col_eda2 = st.columns([1, 1])
                 
                 with col_eda1:
-                    st.markdown("#### 📝 차량 종류별 기초 통계량 (DB 평균)")
-                    stats = df_eda[['car_count', 'bus_count', 'truck_count']].mean().rename("평균 대수 (프레임당)")
+                    st.markdown("#### 📝 화면 내 최대 동시 출현 차량 (DB 기준)")
+                    stats = df_eda[['car_count', 'bus_count', 'truck_count']].max().rename("최대 관측 대수 (대)")
                     st.dataframe(stats, width="stretch")
-                    st.caption(f"클라우드에 누적된 {len(df_eda)}개의 데이터를 분석한 결과, 승용차의 비중이 압도적으로 높음을 확인했습니다.")
+                    st.caption(f"클라우드에 누적된 {len(df_eda)}개의 데이터를 분석하여, 화면 내 동시에 출현한 최대 차량 수를 추출했습니다.")
                     
                 with col_eda2:
                     st.markdown("#### 📈 시간 경과에 따른 밀집도(Density) 누적 추이")
@@ -533,3 +658,395 @@ with tab3:
             st.error(f"DB 데이터를 불러오는 중 에러가 발생했습니다: {e}")
     else:
         st.error("Supabase 연결이 설정되지 않아 데이터를 분석할 수 없습니다.")
+
+
+# Tab 4: AI 관제 요원 (LLM Chat)
+# ------------------------------------------
+with tab4:
+    st.subheader("💬 AI 교통 관제 에이전트")
+    st.markdown("딥러닝 비전 엔진이 계산한 실시간 데이터를 기반으로 도로 상황을 질의응답할 수 있습니다.")
+    
+    # LLM Settings
+    llm_model_name = st.selectbox("🤖 LLM 모델 선택", ["llama-3.3-70b-versatile (Groq 클라우드)", "llama-3.1-8b-instant (Groq 클라우드)", "llama3 (Ollama 로컬)", "llama3.1 (Ollama 로컬)"], index=0)
+    
+    # Session state for chat history
+    if "messages" not in st.session_state:
+        st.session_state.messages = [
+            {"role": "assistant", "content": "안녕하세요! 지능형 교통 관제 요원입니다. 현재 보고 계신 CCTV의 교통 상황에 대해 무엇이든 물어보세요."}
+        ]
+        
+    if st.button("🔄 대화 내역 초기화 (기억 지우기)"):
+        st.session_state.messages = [
+            {"role": "assistant", "content": "안녕하세요! 지능형 교통 관제 요원입니다. 현재 보고 계신 CCTV의 교통 상황에 대해 무엇이든 물어보세요."}
+        ]
+        st.rerun()
+
+
+    # [UI 개선] 스크롤이 가능한 고정 높이의 채팅창 프레임 생성
+    chat_container = st.container(height=600)
+
+    # Display chat messages from history on app rerun
+    with chat_container:
+        for message in st.session_state.messages:
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
+
+    # React to user input (chat_input은 항상 하단에 고정됨)
+    if prompt := st.chat_input("질문을 입력하세요 (예: 현재 정체 상황 어때?)"):
+        # Display user message in chat message container
+        with chat_container:
+            st.chat_message("user").markdown(prompt)
+        # Add user message to chat history
+        st.session_state.messages.append({"role": "user", "content": prompt})
+
+        # Generate response using LLM
+        with chat_container:
+            with st.chat_message("assistant"):
+                message_placeholder = st.empty()
+            
+            # Construct System Context using live metrics
+            metrics = st.session_state.live_metrics
+            anomaly_status = "심각한 돌발 정체 발생 🚨" if metrics['is_anomaly'] else "정상 소통 중 🟢"
+            
+            # 과거 추세 요약 (현재 세션)
+            history_summary = "과거 데이터 부족"
+            if 'history_df' in st.session_state and not st.session_state.history_df.empty:
+                hist = st.session_state.history_df.dropna(subset=['Actual'])
+                if len(hist) >= 3:
+                    past_avg = hist['Actual'].iloc[:-1].mean() * 100
+                    current_val = metrics['density'] * 100
+                    trend = "급증 중 📈 (정체 심화)" if current_val > past_avg + 5 else "감소 중 📉 (소통 원활)" if current_val < past_avg - 5 else "유지 중 ➡️"
+                    history_summary = f"{trend} (최근 평균 {past_avg:.1f}% -> 현재 {current_val:.1f}%)"
+                    
+            # DB 연동 로직은 LLM Tool Call 로 이관됨
+            
+            system_prompt = f"""당신은 ITS 지능형 교통 관제 시스템 요원입니다.
+현재 모니터링 중인 CCTV: {metrics['cctv_name']}
+
+[현재(실시간 순간 캡처) 데이터]
+- 현재 혼잡도: {metrics['density']*100:.1f}%
+- 5분 뒤 예측 혼잡도: {metrics['future_prediction']*100:.1f}%
+- 현재 통행량: 승용차 {metrics['car_count']}대, 버스 {metrics['bus_count']}대, 트럭 {metrics['truck_count']}대
+- AI 이상 탐지 상태: {anomaly_status} (위험도 점수: {metrics['mse']:.4f})
+
+[과거 추세]
+- 1분간 혼잡도 변화 추세: {history_summary}
+
+[절대 수칙]
+1. 사용자가 '현재' 상황을 물으면 [현재 데이터]를 기준으로 답변하세요.
+2. 사용자가 '과거', '최근', '누적', '이전' 등 과거 데이터를 요구하거나 묻는다면, 반드시 제공된 'get_traffic_data_from_db' 함수(Tool)를 호출하여 DB를 조회한 후 답변하세요. (추측 금지)
+3. 인사말(안녕하세요 등)이나 불필요한 서론은 반드시 생략하고 핵심만 말하세요.
+4. 반드시 100% 자연스러운 한국어(존댓말)로만 답변하세요. 어색한 번역투나 한자(중국어), 영어를 절대 섞어 쓰지 마세요."""
+
+            full_prompt = system_prompt + "\n\n사용자 질문: " + prompt
+            
+            try:
+                import os
+                import json
+                from groq import Groq
+                
+                groq_api_key = os.getenv("GROQ_API_KEY")
+                if not groq_api_key and "GROQ_API_KEY" in st.secrets:
+                    groq_api_key = st.secrets["GROQ_API_KEY"]
+                    
+                is_ollama = "Ollama" in llm_model_name
+                actual_model = llm_model_name.split(" ")[0]
+                
+                if not is_ollama and not groq_api_key:
+                    message_placeholder.error("GROQ_API_KEY가 .env 파일이나 st.secrets에 설정되지 않았습니다.")
+                    full_response = "API 키 누락"
+                    st.session_state.messages.append({"role": "assistant", "content": full_response})
+                else:
+                    if is_ollama:
+                        # Ollama의 OpenAI 호환 API 사용
+                        client = Groq(api_key="ollama", base_url="http://localhost:11434/v1")
+                    else:
+                        client = Groq(api_key=groq_api_key)
+                    
+                    api_messages = [{"role": "system", "content": system_prompt}]
+                    for m in st.session_state.messages:
+                        if m["role"] == "assistant" and "안녕하세요! 지능형 교통 관제 요원입니다" in m["content"]:
+                            continue
+                        api_messages.append({"role": m["role"], "content": m.get("content", "")})
+                        
+                    tools = [
+                        {
+                            "type": "function",
+                            "function": {
+                                "name": "get_traffic_data_from_db",
+                                "description": "Supabase 데이터베이스에서 특정 과거 시간(분) 동안의 교통량 데이터를 조회합니다. 과거 데이터나 정체 내역에 대한 질문이 들어오면 반드시 이 도구를 사용하세요.",
+                                "parameters": {
+                                    "type": "object",
+                                    "properties": {
+                                        "query": {
+                                            "type": "string",
+                                            "description": "조회할 날짜나 시간 (예: '10', '어제', '6월 29일', '하루동안', '2일전'). 사용자가 말한 그대로 입력하세요."
+                                        }
+                                    },
+                                    "required": ["query"]
+                                }
+                            }
+                        }
+                    ]
+                    
+                    message_placeholder.markdown("자연어 처리(LLM) 분석을 진행 중입니다... ⏳")
+                    response = client.chat.completions.create(
+                        messages=api_messages,
+                        model=actual_model,
+                        temperature=0.1,
+                        tools=tools,
+                        tool_choice="auto"
+                    )
+                    
+                    response_message = response.choices[0].message
+                    tool_calls = response_message.tool_calls
+                    
+                    if tool_calls:
+                        api_messages.append({
+                            "role": "assistant",
+                            "content": response_message.content or "",
+                            "tool_calls": [
+                                {
+                                    "id": t.id,
+                                    "type": "function",
+                                    "function": {
+                                        "name": t.function.name,
+                                        "arguments": t.function.arguments
+                                    }
+                                } for t in tool_calls
+                            ]
+                        })
+                        for tool_call in tool_calls:
+                            function_name = tool_call.function.name
+                            if function_name == "get_traffic_data_from_db":
+                                function_args = json.loads(tool_call.function.arguments)
+                                query_raw = function_args.get("query", "10")
+                                message_placeholder.markdown(f"DB에서 '{query_raw}' 시점의 교통 데이터를 조회 중입니다... 🗄️")
+                                
+                                db_summary_result = "기록 없음"
+                                if supabase:
+                                    try:
+                                        import datetime
+                                        import re
+                                        now = datetime.datetime.utcnow()
+                                        target_time = now - datetime.timedelta(minutes=10)
+                                        end_time = now
+                                        mins = 10
+                                        
+                                        q = query_raw.strip().replace(" ", "")
+                                        if q.isdigit():
+                                            mins = int(q)
+                                            target_time = now - datetime.timedelta(minutes=mins)
+                                        elif "어제" in q or "하루" in q or "오늘" in q:
+                                            mins = 1440
+                                            target_time = now - datetime.timedelta(days=1)
+                                            end_time = now # 조회 기간을 1일 전부터 현재까지로 설정 (Limit 1000 적용 시 최근 데이터만 추출됨)
+                                        elif "그저께" in q:
+                                            mins = 2880
+                                            target_time = now - datetime.timedelta(days=2)
+                                            end_time = target_time + datetime.timedelta(days=1)
+                                        elif "시간" in q:
+                                            match = re.search(r"(\d+)시간", q)
+                                            if match:
+                                                mins = int(match.group(1)) * 60
+                                                target_time = now - datetime.timedelta(minutes=mins)
+                                                end_time = now
+                                        elif "분" in q:
+                                            match = re.search(r"(\d+)분", q)
+                                            if match:
+                                                mins = int(match.group(1))
+                                                target_time = now - datetime.timedelta(minutes=mins)
+                                                end_time = now
+                                        elif "일전" in q:
+                                            match = re.search(r"(\d+)일전", q)
+                                            if match:
+                                                days = int(match.group(1))
+                                                mins = days * 1440
+                                                target_time = now - datetime.timedelta(days=days)
+                                                end_time = target_time + datetime.timedelta(days=1)
+                                        else:
+                                            match = re.search(r"(\d+)월(\d+)일", q)
+                                            if match:
+                                                m = int(match.group(1))
+                                                d = int(match.group(2))
+                                                dt = datetime.datetime(now.year, m, d)
+                                                mins = int((now - dt).total_seconds() / 60)
+                                                target_time = dt
+                                                end_time = target_time + datetime.timedelta(days=1)
+                                                
+                                        # 과거 시점부터 1000개 샘플링 추출 (기간 한정 추가)
+                                        res = supabase.table("traffic_logs").select("*").gte("created_at", target_time.isoformat()).lte("created_at", end_time.isoformat()).order("id", desc=False).limit(1000).execute()
+                                        if res.data and len(res.data) > 0:
+                                            df_db = pd.DataFrame(res.data)
+                                            avg_density = df_db['density'].mean() * 100
+                                            max_density = df_db['density'].max() * 100
+                                            max_car = df_db['car_count'].max()
+                                            max_bus = df_db['bus_count'].max()
+                                            max_truck = df_db['truck_count'].max()
+                                            anomaly_count = df_db['is_anomaly'].sum()
+                                            actual_rows = len(df_db)
+                                            actual_mins = actual_rows / 60.0
+                                            
+                                            db_summary_result = f"[DB 성공: {mins}분 전 시점부터 수집된 {actual_mins:.1f}분 분량({actual_rows}건)의 데이터 분석 결과] 평균 혼잡도 {avg_density:.1f}%, 최대 혼잡도 {max_density:.1f}%, 화면 내 최대 관측 차량: 승용차 {max_car}대, 버스 {max_bus}대, 트럭 {max_truck}대, 이상 감지 횟수: {anomaly_count}회. (명령: 해당 데이터를 바탕으로 브리핑을 작성하십시오. (한자 '前' 사용 금지))"
+                                        else:
+                                            db_summary_result = f"시스템 안내: 사용자가 요청한 날짜/시간 구간의 데이터가 DB에 하나도 존재하지 않습니다. 시스템이 꺼져 있었거나 데이터가 유실되었습니다. 조회 결과가 없을 시 '해당 날짜/시간의 기록이 DB에 존재하지 않아 조회가 불가능합니다'로 응답하십시오. (환각 방지)"
+                                    except Exception as e:
+                                        db_summary_result = f"DB 조회 실패: {str(e)}"
+                                
+                                api_messages.append({
+                                    "tool_call_id": tool_call.id,
+                                    "role": "tool",
+                                    "name": function_name,
+                                    "content": db_summary_result,
+                                })
+                        
+                        message_placeholder.markdown("분석 데이터를 바탕으로 보고서를 작성 중입니다... ✍️")
+                        stream = client.chat.completions.create(messages=api_messages, model=actual_model, temperature=0.1, stream=True)
+                        full_response = ""
+                        for chunk in stream:
+                            if chunk.choices[0].delta.content:
+                                full_response += chunk.choices[0].delta.content
+                                message_placeholder.markdown(full_response + "▌")
+                        message_placeholder.markdown(full_response)
+                        st.session_state.messages.append({"role": "assistant", "content": full_response})
+                    else:
+                        full_response = response_message.content or ""
+                        message_placeholder.markdown(full_response)
+                        st.session_state.messages.append({"role": "assistant", "content": full_response})
+                        
+            except Exception as e:
+                full_response = f"LLM 연동 오류: {str(e)}\n\n.env 파일에 GROQ_API_KEY가 정확히 입력되었는지 확인해주세요."
+                message_placeholder.error(full_response)
+                st.session_state.messages.append({"role": "assistant", "content": full_response})
+
+# ------------------------------------------
+# Tab 5: 관제 일지 자동 생성기
+# ------------------------------------------
+with tab5:
+    # ---------------------------------------------------------
+    # [신규 기능] 관제 일지 자동 생성기 (Auto Report Generator)
+    # ---------------------------------------------------------
+    with st.expander("📄 [관리자용] 관제 일지 원클릭 자동 생성기", expanded=False):
+        st.markdown("DB에 누적된 방대한 과거 데이터를 분석하여 결재용 관제 보고서를 자동으로 작성합니다.")
+        
+        col1, col2 = st.columns([2, 1])
+        with col1:
+            report_duration = st.selectbox("데이터 수집 범위 선택", ["최근 10분", "최근 30분", "최근 1시간"], index=0)
+        with col2:
+            st.write("")
+            st.write("")
+            generate_btn = st.button("보고서 생성 🚀", use_container_width=True)
+            
+        if generate_btn:
+            if not supabase:
+                st.error("DB 연결이 필요합니다.")
+            else:
+                with st.spinner(f"{report_duration}간의 데이터를 수집하고 LLM 모델을 통해 데이터를 분석 중입니다..."):
+                    limit_map = {"최근 10분": 600, "최근 30분": 1800, "최근 1시간": 3600} # 1초당 1로그 기준
+                    limit_rows = limit_map[report_duration]
+                    
+                    try:
+                        res = supabase.table("traffic_logs").select("*").order("id", desc=True).limit(limit_rows).execute()
+                        if not res.data or len(res.data) < 10:
+                            st.warning("분석할 데이터가 충분하지 않습니다. 스트리밍을 켜서 데이터를 모아주세요.")
+                        else:
+                            df_report = pd.DataFrame(res.data)
+                            
+                            total_logs = len(df_report)
+                            avg_density = df_report['density'].mean() * 100
+                            max_density = df_report['density'].max() * 100
+                            max_car = df_report['car_count'].max()
+                            max_bus = df_report['bus_count'].max()
+                            max_truck = df_report['truck_count'].max()
+                            anomaly_count = df_report['is_anomaly'].sum()
+                            
+                            summary_text = f"- 실제 수집된 로그 수: {total_logs}초 분량\n"
+                            summary_text += f"- 평균 혼잡도: {avg_density:.1f}%\n"
+                            summary_text += f"- 최대 혼잡도: {max_density:.1f}%\n"
+                            summary_text += f"- 화면 내 최대 동시 관측 차량: 승용차 {max_car}대, 버스 {max_bus}대, 트럭 {max_truck}대\n"
+                            summary_text += f"- 이상 감지(돌발 정체) 발생 횟수: {anomaly_count}회\n"
+                            
+                            import datetime
+                            current_time_str = datetime.datetime.now().strftime("%Y년 %m월 %d일 %H시 %M분")
+                            report_prompt = f"""당신은 관제 센터 수석 분석관입니다.
+다음은 {report_duration} 동안 수집된 교통량 통계 요약입니다:
+{summary_text}
+
+이 데이터를 바탕으로 상부 결재용 '지능형 ITS 교통 관제 일지'를 작성해주세요.
+반드시 포함할 내용:
+1. 브리핑 개요 (분석 시간 범위, 전체적인 교통 흐름 요약)
+2. 혼잡도 상세 분석 (평균 및 최대 혼잡도를 바탕으로 원활/지체/정체 등급 평가)
+3. 특이사항 및 돌발 상황 (이상 감지 횟수를 바탕으로 평가)
+4. 향후 관제 요원 행동 지침 (가상의 프로페셔널한 조언)
+
+인사말 없이 바로 마크다운 제목('# 📄 {current_time_str} 교통 관제 일지')부터 시작하고, 가독성 좋게 표나 글머리 기호를 활용하세요."""
+                            
+                            import os
+                            import io
+                            from groq import Groq
+                            from docx import Document
+                            from docx.shared import Pt, Inches
+                            from docx.enum.text import WD_ALIGN_PARAGRAPH
+                            
+                            groq_api_key = os.getenv("GROQ_API_KEY") or (st.secrets["GROQ_API_KEY"] if "GROQ_API_KEY" in st.secrets else None)
+                            
+                            is_ollama = "Ollama" in llm_model_name
+                            actual_model = llm_model_name.split(" ")[0]
+                            
+                            if not is_ollama and not groq_api_key:
+                                st.error("GROQ API Key가 설정되지 않았습니다.")
+                            else:
+                                if is_ollama:
+                                    client = Groq(api_key="ollama", base_url="http://localhost:11434/v1")
+                                else:
+                                    client = Groq(api_key=groq_api_key)
+                                
+                                completion = client.chat.completions.create(
+                                    messages=[{"role": "user", "content": report_prompt}],
+                                    model=actual_model,
+                                    temperature=0.3,
+                                )
+                                report_result = completion.choices[0].message.content
+                                
+                                st.success("✅ 보고서 작성이 완료되었습니다.")
+                                st.markdown("---")
+                                st.markdown(report_result)
+                                st.markdown("---")
+                                
+                                # Generate Word Document in memory
+                                doc = Document()
+                                
+                                # Add title
+                                title = doc.add_heading("지능형 교통 관제 일지", 0)
+                                title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                                
+                                # Add generated content
+                                for line in report_result.split('\n'):
+                                    if line.startswith('# '):
+                                        doc.add_heading(line.replace('# ', '').strip(), level=1)
+                                    elif line.startswith('## '):
+                                        doc.add_heading(line.replace('## ', '').strip(), level=2)
+                                    elif line.startswith('### '):
+                                        doc.add_heading(line.replace('### ', '').strip(), level=3)
+                                    elif line.startswith('- '):
+                                        p = doc.add_paragraph(line.replace('- ', '').strip(), style='List Bullet')
+                                    else:
+                                        if line.strip():
+                                            doc.add_paragraph(line.strip())
+                                
+                                # Save to BytesIO
+                                doc_io = io.BytesIO()
+                                doc.save(doc_io)
+                                doc_io.seek(0)
+                                
+                                # Add Download Button
+                                st.download_button(
+                                    label="📄 Word 보고서 다운로드 (.docx)",
+                                    data=doc_io,
+                                    file_name=f"지능형_관제_일지_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.docx",
+                                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                    use_container_width=True
+                                )
+                    except Exception as e:
+                        st.error(f"보고서 생성 중 오류 발생: {e}")
+
