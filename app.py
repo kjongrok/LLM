@@ -11,6 +11,7 @@ import threading
 import glob
 import tensorflow as tf
 from ultralytics import YOLO
+from PIL import ImageFont, ImageDraw, Image
 from dotenv import load_dotenv
 from supabase import create_client
 
@@ -236,6 +237,8 @@ else:
 
 st.sidebar.markdown("---")
 run_stream = st.sidebar.checkbox("▶️ [Live] 스트리밍 시작", value=False)
+show_heatmap = st.sidebar.checkbox("🔥 실시간 혼잡도 히트맵", value=False)
+show_roi_line = st.sidebar.checkbox("🚧 가상 통제선(ROI) 카운팅", value=False)
 st.sidebar.markdown("---")
 st.sidebar.subheader("🧪 시스템 안정성 테스트 (Stress Test)")
 inject_traffic_jam = st.sidebar.button("🔥 정체 시나리오 테스트 실행")
@@ -243,7 +246,7 @@ if inject_traffic_jam:
     st.session_state.stress_test_active = True
     st.session_state.stress_test_counter = 0
 
-st.title("🚗 교통량 이상 탐지 및 예측 MLOps 시스템")
+st.title("교통량 이상 탐지 및 예측 시스템")
 
 # ==========================================
 # 3. 다중 탭(Tabs) 레이아웃 생성
@@ -303,6 +306,19 @@ with tab1:
             last_log_time = 0
             retry_count = 0
             
+            heatmap_accum = None
+            korean_font = None
+            try:
+                korean_font = ImageFont.truetype("malgun.ttf", 32)
+            except IOError:
+                korean_font = ImageFont.load_default()
+                
+            if 'track_history' not in st.session_state or isinstance(st.session_state.track_history, list):
+                st.session_state.track_history = {}
+                st.session_state.next_track_id = 0
+                st.session_state.roi_count = 0
+                st.session_state.passed_ids = set()
+            
             while run_stream:
                 ret, img = cap.read()
                 if not ret:
@@ -326,9 +342,10 @@ with tab1:
                 # [벤치마크 검증 완료] 야간 오탐지 방지를 위한 임계값 0.40 적용
                 yolo_conf = 0.40
                     
-                # [고도화] Object Tracking (Custom Centroid Tracker) 도입
-                if 'track_history' not in st.session_state:
-                    st.session_state.track_history = [] # list of dicts: {'center': (cx, cy), 'stationary_count': 0}
+                if show_heatmap:
+                    if heatmap_accum is None or heatmap_accum.shape[:2] != img.shape[:2]:
+                        heatmap_accum = np.zeros((img.shape[0], img.shape[1]), dtype=np.float32)
+                    heatmap_accum *= 0.90 # Decay factor
                     
                 # 객체 탐지(Detection) 로직 복원
                 results = yolo_model(img, classes=[2, 5, 7], conf=yolo_conf, verbose=False)
@@ -338,10 +355,7 @@ with tab1:
                 total_bbox_area = 0.0
                 img_drawn = results[0].plot()
                 
-                cv2.putText(img_drawn, f"Model: YOLOv8 Medium | Conf: {yolo_conf:.2f} | Engine: Centroid Tracker", 
-                            (20, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
-                
-                current_track_history = []
+                current_track_history = {}
                 for box in boxes:
                     cls_id = int(box.cls[0])
                     x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
@@ -351,29 +365,44 @@ with tab1:
                     is_stationary = False
                     stationary_count = 0
                     
+                    if show_heatmap and heatmap_accum is not None:
+                        radius = int(max(x2-x1, y2-y1) * 0.4)
+                        if radius > 0:
+                            cv2.circle(heatmap_accum, (int(cx), int(cy)), radius, 25.0, -1)
+                    
                     # 이전 프레임의 객체들과 거리 비교 (가장 가까운 것 찾기)
                     min_dist = float('inf')
                     best_match_idx = -1
-                    for idx, prev_track in enumerate(st.session_state.track_history):
+                    for tid, prev_track in st.session_state.track_history.items():
                         prev_cx, prev_cy = prev_track['center']
                         dist = ((cx - prev_cx)**2 + (cy - prev_cy)**2) ** 0.5
-                        if dist < min_dist and dist < 20.0: # 20픽셀 이내의 근처 객체만 매칭
+                        if dist < min_dist and dist < 30.0: # 30픽셀 이내 매칭
                             min_dist = dist
-                            best_match_idx = idx
+                            best_match_idx = tid
                             
                     if best_match_idx != -1:
                         # 매칭 성공: 이전 정차 카운트 승계
                         prev_count = st.session_state.track_history[best_match_idx]['stationary_count']
-                        # 1픽셀 미만 이동이면 정차 누적
-                        if min_dist < 1.0:
+                        if min_dist < 2.0:
                             stationary_count = prev_count + 1
                         else:
                             stationary_count = 0
                             
+                        if show_roi_line:
+                            roi_y = int(img.shape[0] * 0.6)
+                            prev_cy = st.session_state.track_history[best_match_idx]['center'][1]
+                            if (prev_cy < roi_y and cy >= roi_y) or (prev_cy > roi_y and cy <= roi_y):
+                                if best_match_idx not in st.session_state.passed_ids:
+                                    st.session_state.roi_count += 1
+                                    st.session_state.passed_ids.add(best_match_idx)
+                            
                         # 한 번 매칭된 이전 객체는 리스트에서 제거하여 중복 매칭 방지
                         st.session_state.track_history.pop(best_match_idx)
+                    else:
+                        best_match_idx = st.session_state.next_track_id
+                        st.session_state.next_track_id += 1
                     
-                    current_track_history.append({'center': (cx, cy), 'stationary_count': stationary_count})
+                    current_track_history[best_match_idx] = {'center': (cx, cy), 'stationary_count': stationary_count}
                     
                     # 10프레임 이상 멈춰있으면 Parked로 간주
                     if stationary_count > 10:
@@ -392,6 +421,22 @@ with tab1:
                     total_bbox_area += ((x2 - x1) * (y2 - y1))
                     
                 st.session_state.track_history = current_track_history
+                
+                if show_roi_line:
+                    roi_y = int(img.shape[0] * 0.6)
+                    cv2.line(img_drawn, (0, roi_y), (img.shape[1], roi_y), (0, 255, 255), 3)
+                    
+                    img_pil = Image.fromarray(img_drawn)
+                    draw = ImageDraw.Draw(img_pil)
+                    draw.text((20, 60), f"통제선 통과 차량: {st.session_state.roi_count} 대", font=korean_font, fill=(0, 255, 255))
+                    img_drawn = np.array(img_pil)
+                    
+                if show_heatmap and heatmap_accum is not None:
+                    heatmap_norm = np.clip(heatmap_accum, 0, 255).astype(np.uint8)
+                    heatmap_norm = cv2.GaussianBlur(heatmap_norm, (31, 31), 0)
+                    heatmap_color = cv2.applyColorMap(heatmap_norm, cv2.COLORMAP_JET)
+                    mask = heatmap_norm > 15
+                    img_drawn[mask] = cv2.addWeighted(img_drawn, 0.6, heatmap_color, 0.4, 0)[mask]
                     
                 density = total_bbox_area / img_area if img_area > 0 else 0
                 
@@ -479,11 +524,12 @@ with tab1:
 
                 current_time = time.time()
                 if current_time - last_log_time >= 1.0:
-                    log_to_supabase_async({
-                        "car_count": int(car_count), "bus_count": int(bus_count), "truck_count": int(truck_count),
-                        "density": float(density), "anomaly_mse": float(mse), "is_anomaly": bool(is_anomaly),
-                        "predicted_next_density": float(predicted_density_real)
-                    })
+                    if not st.session_state.get('stress_test_active', False):
+                        log_to_supabase_async({
+                            "car_count": int(car_count), "bus_count": int(bus_count), "truck_count": int(truck_count),
+                            "density": float(density), "anomaly_mse": float(mse), "is_anomaly": bool(is_anomaly),
+                            "predicted_next_density": float(predicted_density_real)
+                        })
                     last_log_time = current_time
 
                 metric_car.metric("승용차", f"{car_count} 대")
