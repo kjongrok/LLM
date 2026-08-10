@@ -244,7 +244,7 @@ st.sidebar.subheader("🧪 시스템 안정성 테스트 (Stress Test)")
 inject_traffic_jam = st.sidebar.button("🔥 정체 시나리오 테스트 실행")
 if inject_traffic_jam:
     st.session_state.stress_test_active = True
-    st.session_state.stress_test_counter = 0
+    st.session_state.stress_test_until = time.time() + 10.0
 
 st.title("교통량 이상 탐지 및 예측 시스템")
 
@@ -440,15 +440,17 @@ with tab1:
                     
                 density = total_bbox_area / img_area if img_area > 0 else 0
                 
-                # [Stress Test] 시연용 돌발 정체 주입
-                if st.session_state.get('stress_test_active', False):
-                    st.session_state.stress_test_counter += 1
+                # [Stress Test] 시연용 돌발 정체를 실제 시간 기준으로 10초간 주입
+                stress_test_active = (
+                    st.session_state.get('stress_test_active', False)
+                    and time.time() < st.session_state.get('stress_test_until', 0.0)
+                )
+                st.session_state.stress_test_active = stress_test_active
+
+                if stress_test_active:
                     car_count += 30
                     bus_count += 5
-                    density += 0.5 # 테스트용 정체 데이터(밀집도 50%) 주입
-                    
-                    if st.session_state.stress_test_counter > 15: # 15프레임 이후 테스트 상태 해제
-                        st.session_state.stress_test_active = False
+                    density = min(density + 0.9, 1.0) # 테스트용 정체 데이터 주입(이상 탐지 임계값 초과)
                 
                 features = np.array([[car_count, bus_count, truck_count, density]], dtype=float)
                 features_scaled = scaler.transform(features)
@@ -457,8 +459,10 @@ with tab1:
                 reconstructed = ae_model.predict(features_scaled_lstm, verbose=0)
                 raw_mse = np.mean(np.square(features_scaled_lstm - reconstructed), axis=(1, 2))[0]
                 
-                # Apply Exponential Moving Average (EMA) to smooth out flickering
-                if 'smoothed_mse' not in st.session_state:
+                # 일반 관제에서는 EMA로 오탐지를 줄이고, 테스트 중에는 즉시 반응하도록 원시 오차를 사용
+                if stress_test_active:
+                    st.session_state.smoothed_mse = raw_mse
+                elif 'smoothed_mse' not in st.session_state:
                     st.session_state.smoothed_mse = raw_mse
                 else:
                     alpha = 0.3 # 30% current, 70% previous (smoothing factor)
@@ -466,9 +470,10 @@ with tab1:
                     
                 mse = st.session_state.smoothed_mse
                 
-                is_anomaly = mse > threshold
-                if (car_count + bus_count + truck_count) < 5:
-                    is_anomaly = False
+                total_vehicle_count = car_count + bus_count + truck_count
+                is_low_traffic = total_vehicle_count < 5
+                is_anomaly = mse >= threshold and not is_low_traffic
+                is_near_anomaly = threshold * 0.8 <= mse < threshold and not is_low_traffic
                     
                 # 1. 딥러닝 고도화: Sliding Window (Sequence Buffer) 기반 트렌드 추론
                 if 'sequence_buffer' not in st.session_state:
@@ -556,11 +561,22 @@ with tab1:
                 # Early Warning UI
                 max_future_density = max(future_predictions)
                 if is_anomaly:
-                    status_placeholder.error(f"🚨 [이상 탐지] 현재 교통 흐름에 이상이 감지되었습니다! (오차율: {mse:.4f})")
+                    status_placeholder.error(
+                        f"🚨 [이상 탐지] 현재 교통 흐름에 이상이 감지되었습니다! "
+                        f"(이상 점수(MSE): {mse:.4f} / 임계값: {threshold:.4f})"
+                    )
+                elif is_near_anomaly:
+                    status_placeholder.warning(
+                        f"⚠️ [주의] 이상 탐지 임계값에 근접했습니다. "
+                        f"(이상 점수(MSE): {mse:.4f} / 임계값: {threshold:.4f})"
+                    )
                 elif max_future_density > 0.45: # 실제 정체 기준(45% 점유율)
                     status_placeholder.warning(f"⚠️ [예측 경보] 잠시 후 교통 혼잡이 예상됩니다! (최대 밀집도: {max_future_density:.4f})")
                 else:
-                    status_placeholder.success(f"✅ [정상] 원활한 교통 흐름을 보이고 있습니다. (오차율: {mse:.4f})")
+                    status_placeholder.success(
+                        f"✅ [정상] 원활한 교통 흐름을 보이고 있습니다. "
+                        f"(이상 점수(MSE): {mse:.4f} / 임계값: {threshold:.4f})"
+                    )
                     
                 img_drawn_resized = cv2.resize(img_drawn, (800, 450))
                 img_rgb = cv2.cvtColor(img_drawn_resized, cv2.COLOR_BGR2RGB)
@@ -649,7 +665,7 @@ with tab3:
             A[공공 ITS CCTV] -->|Stream| B(YOLOv8 Medium)
             B -->|BBox Metrics| C{AI Engine}
             C --> D[LSTM Autoencoder]
-            C --> E[GRU Forecaster (Sliding Window)]
+            C --> E["GRU Forecaster (Sliding Window)"]
             D -->|MSE Score| F[Anomaly Detection]
             E -->|t+1 Density| G[Traffic Prediction]
             C -.->|Async Logging| H[(Supabase Cloud DB)]
