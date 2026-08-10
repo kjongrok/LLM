@@ -2,6 +2,10 @@
 
 실시간 CCTV 비전 분석과 시계열 예측 결과를 LLM에 연결해 자연어 교통 브리핑과 관제 일지를 생성하는 개인 LLM 프로젝트입니다. 딥러닝 관제 파이프라인에 대화형 분석, 과거 데이터 조회, 보고서 자동화를 추가한 통합 시스템입니다.
 
+## 시연 영상
+
+[![Vision-to-Text 교통 관제 프로젝트 시연 영상](docs/images/demo-video-thumbnail.png)](https://youtu.be/dR177JPcxXM)
+
 ## 실행 화면
 
 ### 실시간 Vision AI 관제
