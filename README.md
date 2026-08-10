@@ -24,7 +24,7 @@
 
 ![자동 생성된 Word 형식 교통 관제 일지](docs/images/word-report.png)
 
-## 보고서 핵심 분석
+## 핵심 설계
 
 ### Vision-to-Text 통합 아키텍처
 
@@ -32,29 +32,11 @@
 
 YOLOv8 차량 탐지, LSTM Autoencoder 이상 탐지, GRU 교통량 예측, SHAP 설명, Llama 기반 응답 생성을 하나의 파이프라인으로 연결했습니다. 영상에서 얻은 수치가 자연어 브리핑과 관제 보고서로 변환되는 전체 흐름을 보여줍니다.
 
-### 교통량 예측 모델 선정
-
-![LSTM 1D-CNN GRU 교통량 예측 벤치마크](docs/images/report/forecasting-benchmark.png)
-
-LSTM, 1D-CNN, GRU를 동일 조건에서 비교해 예측 성능과 실시간 처리 효율을 함께 평가했습니다. 최종 GRU 모델은 최근 관측값을 바탕으로 단기 교통량을 예측해 관제 화면과 LLM 컨텍스트에 제공합니다.
-
-### SHAP 기반 예측 설명
-
-![차종과 교통 밀집도 피처의 SHAP 설명 결과](docs/images/report/shap-explanation.png)
-
-차종별 통행량과 밀집도 등 어떤 입력이 예측값을 높이거나 낮췄는지 SHAP으로 설명합니다. LLM은 이 근거를 활용해 단순 수치 나열을 넘어 원인 중심의 교통 브리핑을 생성합니다.
-
 ### RAG와 Function Calling
 
 ![과거 교통 데이터 조회를 위한 RAG와 Function Calling 흐름](docs/images/report/rag-function-calling.png)
 
 사용자의 자연어 질문에서 기간과 조회 의도를 파악하고, 필요한 경우 Function Calling으로 Supabase의 실제 데이터를 조회합니다. 조회 결과를 현재 관제 지표와 결합해 근거가 있는 답변을 생성하도록 설계했습니다.
-
-### 관제 보고서 자동화
-
-![기간별 교통 관제 보고서 Word 자동 생성 흐름](docs/images/report/report-automation.png)
-
-선택한 시간 범위의 교통량, 이상 징후와 예측 결과를 LLM이 구조화된 관제 일지로 요약합니다. 생성된 내용을 Word 문서로 내려받을 수 있어 실시간 관제 결과를 업무 보고로 이어갈 수 있습니다.
 
 ## 핵심 기능
 
